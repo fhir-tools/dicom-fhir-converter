@@ -1,11 +1,12 @@
-# dicom2device.py
-
 import uuid
+import logging
 from collections.abc import Iterable
-#from pydicom.dataset import Dataset
-from dicom_json_proxy import DicomJsonProxy
+from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 from fhir.resources.R4B.device import Device, DeviceDeviceName
 from fhir.resources.R4B.annotation import Annotation
+from fhir.resources.R4B.device import DeviceUdiCarrier
+
+logger = logging.getLogger(__name__)
 
 def _map_software_versions(ds: DicomJsonProxy) -> list[dict]:
     """
@@ -14,11 +15,11 @@ def _map_software_versions(ds: DicomJsonProxy) -> list[dict]:
     This attribute is multi-valued (LO), so it returns a list of version strings.
     """
     # pydicom returns either a single value or a MultiValue object for VR LO
-    raw = ds.get("SoftwareVersions", None)
-    if not raw:
+    if "SoftwareVersions" not in ds:
         return []
-
+    
     # Normalize to list of strings
+    raw = ds.SoftwareVersions
     if isinstance(raw, Iterable) and not isinstance(raw, (str, bytes)):
         return [{'value': str(item).strip()} for item in raw if item is not None]
     else:
@@ -37,72 +38,80 @@ def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
 
     # Identifiers
     identifiers = []
-    for tag_name, system in [
-        ("DeviceSerialNumber", "urn:dicom:device-serial-number"),
-        ("DeviceUID", "urn:dicom:device-uid"),
-    ]:
-        val = ds.get(tag_name)
-        if val:
-            identifiers.append({"use": "official", "system": system, "value": val})
-    if identifiers:
+
+    if "DeviceSerialNumber" in ds:
+        identifiers.append({
+            "use": "official",
+            "system": "urn:dicom:device-serial-number",
+            "value": str(ds.DeviceSerialNumber)
+        })
+
+    if "DeviceUID" in ds:
+        identifiers.append({
+            "use": "official",
+            "system": "urn:dicom:device-uid",
+            "value": str(ds.DeviceUID)
+        })
+
+    if len(identifiers) > 0:
         device.identifier = identifiers
 
     # Manufacturer & Model
-    if (m := ds.get("Manufacturer")):
-        device.manufacturer = m
-    if (name := ds.get("ManufacturerModelName")):
-        device.deviceName = [DeviceDeviceName.model_construct(name=name, type="model-name")]
+    if "Manufacturer" in ds:
+        device.manufacturer = str(ds.Manufacturer)
+    if "ManufacturerModelName" in ds:
+        device.deviceName = [DeviceDeviceName.model_construct(name=str(ds.ManufacturerModelName), type="model-name")]
 
     # Software version(s)
     device.version = _map_software_versions(ds)
 
     # Institutional context
-    for field, tag in [
-        ("manufacturer", "Manufacturer"),
-        ("owner", ds.get("InstitutionName")),
-    ]:
-        pass  # Use owner assignment below
-    if (inst := ds.get("InstitutionName")):
-        device.owner = {"display": inst}
-    if (dept := ds.get("InstitutionalDepartmentName")):
-        device.location = {"display": dept}
-    if (station := ds.get("StationName")):
+    if "InstitutionName" in ds:
+        device.owner = {"display": str(ds.InstitutionName)}
+    if "InstitutionalDepartmentName" in ds:
+        device.location = {"display": str(ds.InstitutionalDepartmentName)}
+    if "StationName" in ds:
         # Could be assigned to device.deviceName as 'station' or use part of location
         device.deviceName = device.deviceName or []
-        device.deviceName.append(DeviceDeviceName.model_construct(name=station, type="station-name"))
+        device.deviceName.append(DeviceDeviceName.model_construct(name=str(ds.StationName), type="station-name"))
 
     # Physical/device-specific details
-    if (spat := ds.get("SpatialResolution")):
-        device.property = device.property or []
-        device.property.append({
-            "type": {"text": "spatial-resolution-mm"},
-            "valueQuantity": {"value": float(spat), "unit": "mm"}
-        })
+    try:
+        if "SpatialResolution" in ds:
+            device.property = device.property or []
+            device.property.append({
+                "type": {"text": "spatial-resolution-mm"},
+                "valueQuantity": {"value": float(ds.SpatialResolution), "unit": "mm"}
+            })
+    except:
+        logger.warning(f"Failed to extract SpatialResolution: {ds.SpatialResolution}")
 
     # Calibration date/time
-    cal_date = ds.get("DateOfLastCalibration")
-    cal_time = ds.get("TimeOfLastCalibration")
+    cal_date = str(ds.DateOfLastCalibration) if "DateOfLastCalibration" in ds else None
+    cal_time = str(ds.TimeOfLastCalibration) if "TimeOfLastCalibration" in ds else None
     if cal_date or cal_time:
         dt = cal_date + (cal_time or "")
         device.note = device.note or []
         device.note.append(Annotation.model_construct(text=f"Last calibration: {dt}"))
 
     # Pixel padding—maybe not core but included
-    if (pad := ds.get("PixelPaddingValue")):
+    if "PixelPaddingValue" in ds:
         device.note = device.note or []
-        device.note.append(Annotation.model_construct(text=f"Pixel padding value: {pad}"))
+        device.note.append(Annotation.model_construct(text=f"Pixel padding value: {ds.PixelPaddingValue}"))
 
     # UDI (Unique Device Identifier)
-    if hasattr(ds, "UDISequence"):
+    if "UDISequence" in ds:
         udi_items = []
         for item in ds.UDISequence:
-            if (code := ds.get("UniqueDeviceIdentifier")):
-                udi_items.append({"system": "http://hl7.org/fhir/sid/udi", "value": code})
+            if "UniqueDeviceIdentifier" in item:
+                udi_items.append(DeviceUdiCarrier.model_construct(
+                    deviceIdentifier=str(item.UniqueDeviceIdentifier))
+                )
         if udi_items:
             device.udiCarrier = udi_items
 
     # Modality as device type
-    if (mod := ds.get("Modality")):
-        device.type = {"text": mod}
+    if "Modality" in ds:
+        device.type = {"text": str(ds.Modality)}
 
     return device

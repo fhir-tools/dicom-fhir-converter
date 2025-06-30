@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 import os
 import logging
+from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 
 TERMINOLOGY_CODING_SYS = "http://terminology.hl7.org/CodeSystem/v2-0203"
 TERMINOLOGY_CODING_SYS_CODE_ACCESSION = "ACSN"
@@ -63,7 +64,7 @@ def gen_studyinstanceuid_identifier(id):
 def get_patient_resource_ids(PatientID, IssuerOfPatientID):
     idf = identifier.Identifier.model_construct()
     idf.use = "usual"
-    idf.value = PatientID
+    idf.value = str(PatientID)
 
     idf.type = codeableconcept.CodeableConcept.model_construct()
     idf.type.coding = []
@@ -74,12 +75,12 @@ def get_patient_resource_ids(PatientID, IssuerOfPatientID):
 
     if IssuerOfPatientID is not None:
         idf.assigner = reference.Reference.model_construct()
-        idf.assigner.display = IssuerOfPatientID
+        idf.assigner.display = str(IssuerOfPatientID)
 
     return idf
 
 
-def calc_gender(gender):
+def calc_gender(gender: str | None):
     if gender is None:
         return "unknown"
     if not gender:
@@ -94,7 +95,7 @@ def calc_gender(gender):
     return "unknown"
 
 
-def calc_dob(dicom_dob):
+def calc_dob(dicom_dob: str):
     if dicom_dob == '':
         return None
 
@@ -117,12 +118,12 @@ def inline_patient_resource(referenceId, PatientID, IssuerOfPatientID, patientNa
     # p.use = "official"
     p.identifier = [get_patient_resource_ids(PatientID, IssuerOfPatientID)]
     hn = humanname.HumanName.model_construct()
-    hn.family = patientName.family_name
+    hn.family = str(patientName.family_name)
     if patientName.given_name != '':
-        hn.given = [patientName.given_name]
+        hn.given = [str(patientName.given_name)]
     p.name.append(hn)
-    p.gender = calc_gender(gender)
-    p.birthDate = calc_dob(dob)
+    p.gender = calc_gender(str(gender))
+    p.birthDate = calc_dob(str(dob))
     p.active = True
     return p
 
@@ -290,12 +291,12 @@ def gen_bodysite_coding(bd):
     # return
 
 
-def dcm_coded_concept(CodeSequence: list[dict]):
+def dcm_coded_concept(CodeSequence: list[DicomJsonProxy]):
     concepts = []
     for seq in CodeSequence:
         concept = {}
-        concept["code"] = seq[0x0008, 0x0100].value
-        concept["system"] = seq[0x0008, 0x0102].value
-        concept["display"] = seq[0x0008, 0x0104].value
+        concept["code"] = str(seq.CodeValue)
+        concept["system"] = str(seq.CodingSchemeDesignator)
+        concept["display"] = str(seq.CodeMeaning)
         concepts.append(concept)
     return concepts

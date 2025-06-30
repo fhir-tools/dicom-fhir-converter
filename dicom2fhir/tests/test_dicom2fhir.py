@@ -1,14 +1,28 @@
 import os
-import yaml
+import yaml, json
+import logging
 import unittest
 from unittest import skipUnless
 from pathlib import Path
-import hashlib
-import pydicom
 from .. import dicom2fhir
 from fhir.resources.R4B import bundle
 from fhir.resources.R4B import imagingstudy
 from .. import helpers
+from dicom2fhir.dicom_json_proxy import DicomJsonProxy
+from typing import AsyncGenerator
+from pydicom import dcmread
+
+dicom2fhir_config = {
+    "dicom_timezone": "Europe/Berlin",
+    "generator": {
+        "imaging_study": {
+            "add_instance": True,
+        }
+    }
+}
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 def _extract_imaging_study_from_bundle(b: bundle.Bundle) -> imagingstudy.ImagingStudy:
     """
@@ -23,7 +37,7 @@ def _extract_imaging_study_from_bundle(b: bundle.Bundle) -> imagingstudy.Imaging
 
     raise ValueError("No ImagingStudy resource found in the bundle")
 
-class testDicom2FHIR(unittest.TestCase):
+class testDicom2FHIR(unittest.IsolatedAsyncioTestCase):
 
     def setUp(self):
         # Set up any necessary configuration or environment variables
@@ -33,10 +47,28 @@ class testDicom2FHIR(unittest.TestCase):
         if not self.config:
             raise ValueError("Configuration could not be loaded")
 
-    def test_instance_dicom2fhir(self):
+    async def test_dicom_json_proxy(self):
+
+        dcm_file = os.path.join(os.getcwd(), "dicom2fhir", "tests", "resources", "dcm-instance", "dcm_1.dcm")
+        dicom_json = dcmread(dcm_file, stop_before_pixels=True, force=True).to_json_dict()
+        dicom_json_proxy = DicomJsonProxy(dicom_json)
+
+        pat_id = dicom_json_proxy.PatientID
+        self.assertIsNotNone(pat_id, "PatientID should not be None")
+        self.assertIsInstance(pat_id, str, "PatientID should be a string")
+        self.assertTrue(pat_id == "DAC007_CRLAT", "PatientID should be DAC007_CRLAT")
+
+        kvp = dicom_json_proxy.KVP
+
+        logger.info(f"KVP: {kvp}, type: {type(kvp)}")
+
+  
+
+
+    async def test_instance_dicom2fhir(self):
         dcmDir = os.path.join(os.getcwd(), "dicom2fhir", "tests", "resources", "dcm-instance")
         study: imagingstudy.ImagingStudy
-        bundle = dicom2fhir.process_dicom_2_fhir(dcmDir, config=self.config)
+        bundle = await dicom2fhir.from_directory(dcmDir, config=self.config)
         study = _extract_imaging_study_from_bundle(bundle)
 
         self.assertIsNotNone(study, "No ImagingStudy was generated")
@@ -61,11 +93,11 @@ class testDicom2FHIR(unittest.TestCase):
         instance = series.instance[0]
         self.assertIsNotNone(instance, "Missing Instance")
 
-    def test_multi_instance_dicom(self):
+    async def test_multi_instance_dicom(self):
         dcmDir = os.path.join(os.getcwd(), "dicom2fhir", "tests", "resources", "dcm-multi-instance")
-        bundle = dicom2fhir.process_dicom_2_fhir(dcmDir, config=self.config)
+        bundle = await dicom2fhir.from_directory(dcmDir, config=self.config)
 
-        print(bundle.model_dump_json(indent=2))
+        #print(bundle.model_dump_json(indent=2))
 
         study = _extract_imaging_study_from_bundle(bundle)
 
@@ -78,11 +110,11 @@ class testDicom2FHIR(unittest.TestCase):
         self.assertEqual(len(study.series), 1, "Incorrect number of series detected")
         self.assertEqual(len(study.series[0].instance), 5, "Incorrect number of instances detected")
 
-    def test_multi_series_dicom(self):
+    async def test_multi_series_dicom(self):
         dcmDir = os.path.join(os.getcwd(), "dicom2fhir", "tests", "resources", "dcm-multi-series")
-        bundle = dicom2fhir.process_dicom_2_fhir(dcmDir, config=self.config)
+        bundle = await dicom2fhir.from_directory(dcmDir, config=self.config)
 
-        print(bundle.model_dump_json(indent=2))
+        #print(bundle.model_dump_json(indent=2))
 
         study = _extract_imaging_study_from_bundle(bundle)
 
@@ -95,10 +127,8 @@ class testDicom2FHIR(unittest.TestCase):
         self.assertEqual(len(study.series), 4, "Number of series in the study: mismatch")
 
     @skipUnless(os.getenv("RUN_FMX_TESTS") == "1", "Skipping FMX tests by config")
-    def test_fmx(self):
-
-        import psycopg2
-        import psycopg2.extras
+    async def test_fmx(self):
+        import asyncpg
 
         def load_fmx_conn_params(config: dict) -> dict:
             """
@@ -114,27 +144,33 @@ class testDicom2FHIR(unittest.TestCase):
                 "port": int(helpers.env_or_config("FMX_PORT", "fmx.port", config)),
                 "password": os.getenv("FMX_PASSWORD")
             }
-        
-        sql = """
-        select 
-          di.tags
-        from (select study_instance_uid from dicom.dicom_studies order by random() limit 1) ds
-        join dicom.dicom_instances di on di.study_instance_uid = ds.study_instance_uid;
-        """
 
-        with psycopg2.connect(**load_fmx_conn_params({})) as conn:
-            with conn.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-                cur.execute(sql)
+        conn_params = load_fmx_conn_params(self.config)
 
-                instances = [pydicom.Dataset.from_json(row['tags']) for row in cur.fetchall()]
-                bundle = dicom2fhir.process_dicom_2_fhir(instances, config=self.config)
+        async with asyncpg.create_pool(**conn_params) as pool:
+            async with pool.acquire() as conn:
+                async with conn.transaction():
+                    for _ in range(10):
+                        stmt = await conn.prepare("""
+                            SELECT di.sop_instance_uid, di.tags
+                            FROM dicom.dicom_instances di
+                            WHERE di.study_instance_uid = (
+                                SELECT study_instance_uid
+                                FROM dicom.dicom_studies
+                                ORDER BY random()
+                                LIMIT 1
+                            )
+                        """)
 
-                print(bundle.model_dump_json(indent=2))
+                        async def _records_generator():
+                            async for record in stmt.cursor():
+                                yield json.loads(record["tags"])
 
-                study = _extract_imaging_study_from_bundle(bundle)
+                        bundle = await dicom2fhir.from_generator(_records_generator(), config=self.config)
 
-                self.assertIsNotNone(study, "No ImagingStudy was generated")
-                self.assertIsNotNone(study.series, "Series was not built for the study")
-                self.assertIsNotNone(study.series[0].instance[0].sopClass, "SOP Class is missing")
-                self.assertEqual(study.series[0].instance[0].sopClass.system, "urn:ietf:rfc:3986", "SOP Class system is incorrect")
-                
+                        study = _extract_imaging_study_from_bundle(bundle)
+
+                        self.assertIsNotNone(study, "No ImagingStudy was generated")
+                        self.assertIsNotNone(study.series, "Series was not built for the study")
+                        self.assertIsNotNone(study.series[0].instance[0].sopClass, "SOP Class is missing")
+                        self.assertEqual(study.series[0].instance[0].sopClass.system, "urn:ietf:rfc:3986", "SOP Class system is incorrect")

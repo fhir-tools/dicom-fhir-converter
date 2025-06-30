@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dicom2fhir"
-version = "0.1.8"
+version = "0.1.14"
 description = "Convert dicoms to FHIR Bundles containing ImagingStudy, Patient, Device, and Observation resources."
 keywords = ["dicom", "fhir", "resources", "python", "hl7", "health IT", "healthcare"]
 classifiers = [
@@ -23,7 +23,6 @@ dependencies = [
   "html5lib>=1.1",
   "pandas>=2.3.0",
   "PyYAML>=6.0.2",
-  "tqdm>=4.67.1",
   "python-dateutil",
   "pydantic>=2.11.5"
 ]

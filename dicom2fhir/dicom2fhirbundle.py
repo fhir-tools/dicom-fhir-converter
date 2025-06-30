@@ -5,13 +5,14 @@ from fhir.resources.R4B import patient
 from fhir.resources.R4B import device
 from fhir.resources.R4B.reference import Reference
 #from pydicom import dataset
-from dicom_json_proxy import DicomJsonProxy
 import logging
 from dicom2fhir.dicom2fhirutils import gen_coding, SOP_CLASS_SYS, ACQUISITION_MODALITY_SYS, gen_bodysite_coding, gen_accession_identifier, gen_studyinstanceuid_identifier, dcm_coded_concept, gen_procedurecode_array, gen_started_datetime, gen_reason
 from dicom2fhir.dicom2patient import build_patient_resource
 from dicom2fhir.dicom2observation import build_observation_resources
 from dicom2fhir.dicom2device import build_device_resource
 from dicom2fhir.helpers import get_or
+from dicom2fhir.dicom_json_proxy import DicomJsonProxy
+
 class Dicom2FHIRBundle():
 
     def __init__(self, config: dict = {}):
@@ -53,21 +54,21 @@ class Dicom2FHIRBundle():
         study_data["id"] = self.config['id_function']("ImagingStudy", ds)
         study_data["status"] = "available"
         try:
-            if ds.StudyDescription != '':
-                study_data["description"] = ds.StudyDescription
+            if str(ds.StudyDescription) != '':
+                study_data["description"] = str(ds.StudyDescription)
         except Exception:
             pass  # missing study description
 
         study_data["identifier"] = []
-        study_data["identifier"].append(gen_accession_identifier(ds.AccessionNumber))
-        study_data["identifier"].append(gen_studyinstanceuid_identifier(ds.StudyInstanceUID))
+        study_data["identifier"].append(gen_accession_identifier(str(ds.AccessionNumber)))
+        study_data["identifier"].append(gen_studyinstanceuid_identifier(str(ds.StudyInstanceUID)))
 
         # Set the patient reference
         study_data["subject"] = Reference.model_construct(reference=f"Patient/{self.pat.id}") if self.pat else None
 
         procedures = []
         try:
-            procedures = dcm_coded_concept(ds.ProcedureCodeSequence)
+            procedures = dcm_coded_concept(str(ds.ProcedureCodeSequence))
         except Exception:
             pass  # procedure code sequence not found
 
@@ -75,12 +76,12 @@ class Dicom2FHIRBundle():
 
         studyTime = None
         try:
-            studyTime = ds.StudyTime
+            studyTime = str(ds.StudyTime)
         except Exception:
             pass  # print("Study Date is missing")
 
         try:
-            studyDate = ds.StudyDate
+            studyDate = str(ds.StudyDate)
             study_data["started"] = gen_started_datetime(studyDate, studyTime, self.config["dicom_timezone"])
         except Exception:
             pass  # print("Study Date is missing")
@@ -88,12 +89,12 @@ class Dicom2FHIRBundle():
         reason = None
         reasonStr = None
         try:
-            reason = dcm_coded_concept(ds.ReasonForRequestedProcedureCodeSequence)
+            reason = dcm_coded_concept(str(ds.ReasonForRequestedProcedureCodeSequence))
         except Exception:
             pass  # print("Reason for Request procedure Code Seq is not available")
 
         try:
-            reasonStr = ds.ReasonForTheRequestedProcedure
+            reasonStr = str(ds.ReasonForTheRequestedProcedure)
         except Exception:
             pass  # print ("Reason for Requested procedures not found")
 
@@ -115,15 +116,16 @@ class Dicom2FHIRBundle():
         # inti data container
         self.series[series_instance_uid] = {}
 
-        
         self.series[series_instance_uid]["uid"] = series_instance_uid
         try:
-            if ds.SeriesDescription != '':
-                self.series[series_instance_uid]["description"] = ds.SeriesDescription
+            if "SeriesDescription" in ds and str(ds.SeriesDescription) != '':
+                self.series[series_instance_uid]["description"] = str(ds.SeriesDescription)
         except Exception:
             pass
 
-        self.series[series_instance_uid]["number"] = ds.SeriesNumber
+        if "SeriesNumber" in ds and str(ds.SeriesNumber) != '':
+            self.series[series_instance_uid]["number"] = str(ds.SeriesNumber)
+
         self.series[series_instance_uid]["numberOfInstances"] = 0
 
         self.series[series_instance_uid]["modality"] = gen_coding(
@@ -132,19 +134,19 @@ class Dicom2FHIRBundle():
         )
         
         try:
-            stime = ds.SeriesTime
-            sdate = ds.SeriesDate
+            stime = str(ds.SeriesTime)
+            sdate = str(ds.SeriesDate)
             self.series[series_instance_uid]["started"] = gen_started_datetime(sdate, stime, self.config["dicom_timezone"])
         except Exception:
             pass  # print("Series Date/Time is missing")
 
         try:
-            self.series[series_instance_uid]["bodySite"] = gen_bodysite_coding(ds.BodyPartExamined)
+            self.series[series_instance_uid]["bodySite"] = gen_bodysite_coding(str(ds.BodyPartExamined))
         except Exception:
             pass  # print ("Body Part Examined missing")
 
         try:
-            self.series[series_instance_uid]["laterality"] = gen_coding(ds.Laterality)
+            self.series[series_instance_uid]["laterality"] = gen_coding(str(ds.Laterality))
         except Exception:
             pass  # print ("Laterality missing")
     
@@ -168,14 +170,15 @@ class Dicom2FHIRBundle():
             code="urn:oid:" + ds.SOPClassUID,
             system=SOP_CLASS_SYS
         )
-        self.instances[series_instance_uid][sop_instance_uid]["number"] = ds.InstanceNumber
+        self.instances[series_instance_uid][sop_instance_uid]["number"] = str(ds.InstanceNumber)
 
         try:
             if str(ds.Modality) == "SR":
                 seq = ds.ConceptNameCodeSequence
-                self.instances[series_instance_uid][sop_instance_uid]["title"] = seq[0x0008, 0x0104]
+                if isinstance(seq, list) and len(seq) > 0:
+                    self.instances[series_instance_uid][sop_instance_uid]["title"] = str(seq[0].CodeMeaning)
             else:
-                self.instances[series_instance_uid][sop_instance_uid]["title"] = '\\'.join(ds.ImageType)
+                self.instances[series_instance_uid][sop_instance_uid]["title"] = '\\'.join(str(ds.ImageType))
         except Exception:
             pass  # print("Unable to set instance title")
 

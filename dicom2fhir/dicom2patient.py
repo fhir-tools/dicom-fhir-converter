@@ -4,7 +4,6 @@ import re
 import datetime
 import uuid
 from typing import Union
-from pydicom.dataset import Dataset
 from pydicom.valuerep import PersonName
 from fhir.resources.R4B.patient import Patient
 from fhir.resources.R4B.humanname import HumanName
@@ -15,24 +14,25 @@ from fhir.resources.R4B.fhirtypes import DateType
 from fhir.resources.R4B.extension import Extension
 from fhir.resources.R4B.quantity import Quantity
 from dicom2fhir.helpers import get_or
+from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 
 DATE8_REGEX = re.compile(r'^(19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])$')
 
-def dicom_name_to_fhir(name: Union[PersonName, str, None]) -> HumanName:
+def dicom_name_to_fhir(name: str) -> HumanName:
     """
     Convert DICOM PersonName to FHIR HumanName.
 
     DICOM name format: 'Family^Given^Middle^Prefix^Suffix'
     """
-    name = PersonName(name) if not isinstance(name, PersonName) else name
-    if name is None:
+    pname = PersonName(name)
+    if pname is None:
         return HumanName.model_construct()
 
     return HumanName.model_construct(
-        family      = name.family_name,
-        given       = [n for n in [name.given_name, name.middle_name] if n],
-        prefix      = [name.name_prefix] if name.name_prefix else None,
-        suffix      = [name.name_suffix] if name.name_suffix else None,
+        family      = pname.family_name,
+        given       = [n for n in [pname.given_name, pname.middle_name] if n],
+        prefix      = [pname.name_prefix] if pname.name_prefix else None,
+        suffix      = [pname.name_suffix] if pname.name_suffix else None,
     )
 
 
@@ -64,7 +64,7 @@ def dicom_gender_to_fhir(sex: str) -> str:
         'F': 'female',
         'O': 'other'
     }
-    return mapping.get(sex.upper(), 'unknown') if sex else 'unknown'
+    return mapping.get(str(sex).upper(), 'unknown') if sex else 'unknown'
 
 def dicom_address_to_fhir(address_str: str) -> Address:
     """
@@ -83,7 +83,7 @@ def dicom_address_to_fhir(address_str: str) -> Address:
         country=parts[5] if len(parts) > 5 else None
     )
 
-def build_patient_resource(ds: Dataset, config: dict) -> Patient:
+def build_patient_resource(ds: DicomJsonProxy, config: dict) -> Patient:
 
     patient = Patient.model_construct()
 
@@ -92,9 +92,9 @@ def build_patient_resource(ds: Dataset, config: dict) -> Patient:
 
         assigner = None
         issuer_of_patient_id = ds.get("IssuerOfPatientID", None)
-        if issuer_of_patient_id is not None and len(issuer_of_patient_id) > 0:
+        if issuer_of_patient_id is not None and len(str(issuer_of_patient_id)) > 0:
             assigner = {
-                "display": issuer_of_patient_id
+                "display": str(issuer_of_patient_id)
             }
 
         patient.id = config['id_function']('Patient', ds)
@@ -102,7 +102,7 @@ def build_patient_resource(ds: Dataset, config: dict) -> Patient:
             Identifier.model_construct(
                 use="usual",
                 system="urn:dicom:patient-id",
-                value=ds.PatientID,
+                value=str(ds.PatientID),
                 assigner=assigner
             )
         ]
@@ -111,19 +111,19 @@ def build_patient_resource(ds: Dataset, config: dict) -> Patient:
 
     # Name
     if "PatientName" in ds:
-        patient.name = [dicom_name_to_fhir(ds.PatientName)]
+        patient.name = [dicom_name_to_fhir(str(ds.PatientName))]
 
     # BirthDate
     if "PatientBirthDate" in ds:
-        patient.birthDate = dicom_birthdate_to_fhir(ds.PatientBirthDate)
+        patient.birthDate = dicom_birthdate_to_fhir(str(ds.PatientBirthDate))
 
     # Gender
     if "PatientSex" in ds:
-        patient.gender = dicom_gender_to_fhir(ds.PatientSex)
+        patient.gender = dicom_gender_to_fhir(str(ds.PatientSex))
 
     # Address
     if "PatientAddress" in ds:
-        patient.address = [dicom_address_to_fhir(ds.PatientAddress)]
+        patient.address = [dicom_address_to_fhir(str(ds.PatientAddress))]
 
     # Telecom
     if "PatientTelephoneNumbers" in ds:
@@ -131,7 +131,7 @@ def build_patient_resource(ds: Dataset, config: dict) -> Patient:
         if not isinstance(tel, list):
             tel = [tel]
         patient.telecom = [
-            ContactPoint.model_construct(system="phone", value=phone, use="home") for phone in tel
+            ContactPoint.model_construct(system="phone", value=str(phone), use="home") for phone in tel
         ]
 
     return patient

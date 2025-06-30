@@ -1,5 +1,4 @@
-#dicom:
-#  timezone: "Europe/Berlin"
+dicom_timezone: "Europe/Berlin"
 
 directory_parser:
   skip_invalid_files: true

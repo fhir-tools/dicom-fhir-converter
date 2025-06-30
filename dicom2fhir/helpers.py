@@ -3,7 +3,7 @@ import os
 import uuid
 import hashlib
 from typing import Callable
-from pydicom import dataset
+from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 
 def get_or(d: dict, path: str, default=None):
     """
@@ -33,21 +33,21 @@ def env_or_config(env: str, config_path: str, config: dict):
     return val
 
 # default id functions
-def default_id_function(pepper: str | None = None) -> Callable[[str, dataset.Dataset], str]:
+def default_id_function(pepper: str | None = None) -> Callable[[str, DicomJsonProxy], str]:
     """
     Default ID function for FHIR resource id generation.
     Can be customized with a pepper string for additional uniqueness.
     """
-    def _id(resource_type: str, ds: dataset.Dataset) -> str:
-        if not isinstance(ds, dataset.Dataset):
-            raise TypeError("Expected a pydicom Dataset object")
+    def _id(resource_type: str, ds: DicomJsonProxy) -> str:
+        if not isinstance(ds, DicomJsonProxy):
+            raise TypeError("Expected a DicomJsonProxy object")
 
         base_string = ""
-        if resource_type == "ImagingStudy" and hasattr(ds, "StudyInstanceUID"):
+        if resource_type == "ImagingStudy" and "StudyInstanceUID" in ds:
             base_string = ds.StudyInstanceUID
-        elif resource_type == "Patient" and hasattr(ds, "PatientID"):
+        elif resource_type == "Patient" and "PatientID" in ds:
             base_string = ds.PatientID
-        elif resource_type == "Device" and hasattr(ds, "DeviceSerialNumber"):
+        elif resource_type == "Device" and "DeviceSerialNumber" in ds:
             uid = ds.get("DeviceUID") or ''
             ser = ds.get("DeviceSerialNumber") or ''
             mod = ds.get("ManufacturerModelName") or ''

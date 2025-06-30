@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import uuid
+import logging
 from typing import List
-from pydicom.dataset import Dataset
 from fhir.resources.R4B.observation import Observation
 from fhir.resources.R4B.patient import Patient
 from fhir.resources.R4B.imagingstudy import ImagingStudy
@@ -10,8 +10,11 @@ from fhir.resources.R4B.codeableconcept import CodeableConcept
 from fhir.resources.R4B.coding import Coding
 from fhir.resources.R4B.reference import Reference
 from dicom2fhir.dicom2fhirutils import gen_started_datetime
+from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 
-def build_observation_resources(ds: Dataset, patient: Patient, study: ImagingStudy, config: dict) -> List[Observation]:
+logger = logging.getLogger(__name__)
+
+def build_observation_resources(ds: DicomJsonProxy, patient: Patient, study: ImagingStudy, config: dict) -> List[Observation]:
     observations = []
     
     def create_obs(code: str, display: str, value: float, unit: str, system: str, code_unit: str) -> Observation:
@@ -35,14 +38,14 @@ def build_observation_resources(ds: Dataset, patient: Patient, study: ImagingStu
         try:
             weight = float(ds.PatientWeight)
             observations.append(create_obs("29463-7", "Body Weight", weight, "kg", "http://unitsofmeasure.org", "kg"))
-        except ValueError:
-            pass
+        except:
+            logger.warning(f"Failed to extract PatientWeight: {ds.PatientWeight}")
 
     if "PatientSize" in ds and ds.PatientSize is not None:
         try:
             height = float(ds.PatientSize)
             observations.append(create_obs("8302-2", "Body Height", height, "m", "http://unitsofmeasure.org", "m"))
-        except ValueError:
-            pass
+        except:
+            logger.warning(f"Failed to extract PatientSize: {ds.PatientSize}")
 
     return observations

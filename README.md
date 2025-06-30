@@ -272,6 +272,8 @@ The DICOM Study UID is actually stored as part of the "identifier" (see ```"syst
 
 ## Build and upload the library
 
+Change `version` in `pyproject.toml` to the new version number, then run:
+
 ```bash
 rm -rf dist/ build/ *.egg-info
 python -m build
