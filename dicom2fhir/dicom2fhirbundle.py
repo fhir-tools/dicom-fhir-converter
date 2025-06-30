@@ -4,7 +4,8 @@ from fhir.resources.R4B import imagingstudy
 from fhir.resources.R4B import patient
 from fhir.resources.R4B import device
 from fhir.resources.R4B.reference import Reference
-from pydicom import dataset
+#from pydicom import dataset
+from dicom_json_proxy import DicomJsonProxy
 import logging
 from dicom2fhir.dicom2fhirutils import gen_coding, SOP_CLASS_SYS, ACQUISITION_MODALITY_SYS, gen_bodysite_coding, gen_accession_identifier, gen_studyinstanceuid_identifier, dcm_coded_concept, gen_procedurecode_array, gen_started_datetime, gen_reason
 from dicom2fhir.dicom2patient import build_patient_resource
@@ -27,12 +28,12 @@ class Dicom2FHIRBundle():
         self.obs = []
         self.config = config
         
-    def add(self, ds: dataset.Dataset):
+    def add(self, ds: DicomJsonProxy):
         """
         Add a DICOM dataset to the ImagingStudy.
         """
-        if not isinstance(ds, dataset.Dataset):
-            raise TypeError("Expected a pydicom Dataset object")
+        if not isinstance(ds, DicomJsonProxy):
+            raise TypeError("Expected a DicomJsonProxy object")
 
         # is first instance?
         if self.study is None:
@@ -104,7 +105,7 @@ class Dicom2FHIRBundle():
         # instantiate study here, when all required fields are available
         self.study = imagingstudy.ImagingStudy(**study_data)
         
-    def _add_imaging_study_series(self, ds: dataset.Dataset):
+    def _add_imaging_study_series(self, ds: DicomJsonProxy):
 
         series_instance_uid = str(ds.SeriesInstanceUID)
 
@@ -126,7 +127,7 @@ class Dicom2FHIRBundle():
         self.series[series_instance_uid]["numberOfInstances"] = 0
 
         self.series[series_instance_uid]["modality"] = gen_coding(
-            code=ds.Modality,
+            code=str(ds.Modality),
             system=ACQUISITION_MODALITY_SYS
         )
         
@@ -147,7 +148,7 @@ class Dicom2FHIRBundle():
         except Exception:
             pass  # print ("Laterality missing")
     
-    def _add_instance(self, ds: dataset.Dataset):
+    def _add_instance(self, ds: DicomJsonProxy):
 
         series_instance_uid = str(ds.SeriesInstanceUID)
         sop_instance_uid = str(ds.SOPInstanceUID)

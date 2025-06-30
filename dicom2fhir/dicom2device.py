@@ -2,11 +2,12 @@
 
 import uuid
 from collections.abc import Iterable
-from pydicom.dataset import Dataset
+#from pydicom.dataset import Dataset
+from dicom_json_proxy import DicomJsonProxy
 from fhir.resources.R4B.device import Device, DeviceDeviceName
 from fhir.resources.R4B.annotation import Annotation
 
-def _map_software_versions(ds: Dataset) -> list[dict]:
+def _map_software_versions(ds: DicomJsonProxy) -> list[dict]:
     """
     Extract SoftwareVersions (DICOM 0018,1020) from the dataset and map to FHIR Device.version.
     
@@ -23,7 +24,7 @@ def _map_software_versions(ds: Dataset) -> list[dict]:
     else:
         return [{'value': str(raw).strip()}]
 
-def build_device_resource(ds: Dataset, config: dict) -> Device:
+def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
     """
     Build FHIR Device resource from DICOM metadata (General Equipment Module).
     Extracts manufacturer, model, serial, version, institution, station, calibration, UDI, etc.
@@ -95,7 +96,7 @@ def build_device_resource(ds: Dataset, config: dict) -> Device:
     if hasattr(ds, "UDISequence"):
         udi_items = []
         for item in ds.UDISequence:
-            if (code := ds.get("DeviceIdentifier")):
+            if (code := ds.get("UniqueDeviceIdentifier")):
                 udi_items.append({"system": "http://hl7.org/fhir/sid/udi", "value": code})
         if udi_items:
             device.udiCarrier = udi_items

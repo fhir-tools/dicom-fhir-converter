@@ -290,7 +290,7 @@ def gen_bodysite_coding(bd):
     # return
 
 
-def dcm_coded_concept(CodeSequence):
+def dcm_coded_concept(CodeSequence: list[dict]):
     concepts = []
     for seq in CodeSequence:
         concept = {}

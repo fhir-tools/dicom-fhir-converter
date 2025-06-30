@@ -12,6 +12,7 @@ from typing import Iterable, Union
 import dicom2fhir.helpers as helpers
 from dicom2fhir.helpers import get_or
 from dicom2fhir.dicom2fhirbundle import Dicom2FHIRBundle
+from dicom_json_proxy import DicomJsonProxy
 
 StrPath = Union[str, PathLike]
 
@@ -50,18 +51,18 @@ def _parse_directory(dcmDir: StrPath, config: dict) -> Iterable[dataset.Dataset]
             logging.exception(f"An error occurred while processing DICOM file {fp}")
             raise
 
-def _create_bundle(instances: Iterable[dataset.Dataset], config: dict = {}) -> bundle.Bundle:
+def _create_bundle(instances: Iterable[DicomJsonProxy], config: dict = {}) -> bundle.Bundle:
 
     dcm2fhir = Dicom2FHIRBundle(config=config)
     
     for ds in instances:
-        if not isinstance(ds, dataset.Dataset):
-            raise TypeError("Expected a pydicom Dataset object")
+        if not isinstance(ds, DicomJsonProxy):
+            raise TypeError("Expected a DicomJsonProxy object")
         dcm2fhir.add(ds)
 
     return dcm2fhir.create_bundle()
 
-def process_dicom_2_fhir(dcms: StrPath | Iterable[dataset.Dataset], config: dict = {}) -> bundle.Bundle:
+def process_dicom_2_fhir(dcms: StrPath | Iterable[dataset.Dataset] | Iterable[DicomJsonProxy], config: dict = {}) -> bundle.Bundle:
     """
     Process DICOM files or datasets into an ImagingStudy FHIR resource.
     
@@ -73,5 +74,14 @@ def process_dicom_2_fhir(dcms: StrPath | Iterable[dataset.Dataset], config: dict
     if 'id_function' not in config:
         config['id_function'] = helpers.default_id_function()
 
-    instances = _parse_directory(dcms, config) if isinstance(dcms, StrPath) else dcms
+    def wrap(instances = Iterable[dataset.Dataset]):
+        for instance in instances:
+            yield DicomJsonProxy(instance)
+
+    instances = dcms
+    if isinstance(dcms, StrPath):
+        instances = wrap(_parse_directory(dcms, config))
+    elif isinstance(dcms, Iterable[dataset.Dataset]):
+        instances = wrap(dcms)
+
     return _create_bundle(instances, config)
