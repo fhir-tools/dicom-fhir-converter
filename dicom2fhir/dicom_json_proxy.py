@@ -70,7 +70,7 @@ class DicomJsonProxy:
         value = self.get(name)
 
         # Handle cases where value is a dict or list
-        if isinstance(value, dict):
+        if isinstance(value, dict) or isinstance(value, DicomJsonProxy):
             if "Value" in value:
                 value = value["Value"]
             else:

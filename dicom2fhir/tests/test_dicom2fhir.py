@@ -49,6 +49,7 @@ class testDicom2FHIR(unittest.IsolatedAsyncioTestCase):
 
     async def test_dicom_json_proxy(self):
 
+        # Test 1
         dcm_file = os.path.join(os.getcwd(), "dicom2fhir", "tests", "resources", "dcm-instance", "dcm_1.dcm")
         dicom_json = dcmread(dcm_file, stop_before_pixels=True, force=True).to_json_dict()
         dicom_json_proxy = DicomJsonProxy(dicom_json)
@@ -62,7 +63,14 @@ class testDicom2FHIR(unittest.IsolatedAsyncioTestCase):
 
         logger.info(f"KVP: {kvp}, type: {type(kvp)}")
 
-  
+        # Test 2
+        dicom_json = {
+            "00200060": {
+                "vr": "CS"
+            }
+        }
+        dicom_json_proxy = DicomJsonProxy(dicom_json)
+        self.assertFalse(dicom_json_proxy.non_empty("Laterality"), "Laterality should be empty")
 
 
     async def test_instance_dicom2fhir(self):
