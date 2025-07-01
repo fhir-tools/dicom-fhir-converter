@@ -291,12 +291,15 @@ def gen_bodysite_coding(bd):
     # return
 
 
-def dcm_coded_concept(CodeSequence: list[DicomJsonProxy]):
+def dcm_coded_concept(code_sequence: list[DicomJsonProxy]):
     concepts = []
-    for seq in CodeSequence:
+    for seq in code_sequence:
         concept = {}
-        concept["code"] = str(seq.CodeValue)
-        concept["system"] = str(seq.CodingSchemeDesignator)
-        concept["display"] = str(seq.CodeMeaning)
+        if seq.non_empty("CodeValue"):
+            concept["code"] = str(seq.CodeValue)
+        if seq.non_empty("CodingSchemeDesignator"):
+            concept["system"] = str(seq.CodingSchemeDesignator)
+        if seq.non_empty("CodeMeaning"):
+            concept["display"] = str(seq.CodeMeaning)
         concepts.append(concept)
     return concepts

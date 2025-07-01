@@ -62,3 +62,20 @@ class DicomJsonProxy:
             return getattr(self, name)
         except AttributeError:
             return default
+        
+    def non_empty(self, name):
+        """
+        Check if the DICOM attribute is present and not empty.
+        """
+        value = self.get(name)
+
+        # Handle cases where value is a dict or list
+        if isinstance(value, dict):
+            if "Value" in value:
+                value = value["Value"]
+            else:
+                return False
+        if isinstance(value, list):
+            return len(value) > 0
+
+        return value is not None and str(value).strip() != ''

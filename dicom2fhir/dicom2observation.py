@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-import uuid
 import logging
 from typing import List
 from fhir.resources.R4B.observation import Observation
@@ -19,7 +18,7 @@ def build_observation_resources(ds: DicomJsonProxy, patient: Patient, study: Ima
     
     def create_obs(code: str, display: str, value: float, unit: str, system: str, code_unit: str) -> Observation:
         return Observation.model_construct(
-            id=str(uuid.uuid4()),
+            id=config['id_function']('Observation', ds, extra=code),
             status="final",
             category=[CodeableConcept.model_construct(
                 coding=[Coding.model_construct(system="http://terminology.hl7.org/CodeSystem/observation-category", code="vital-signs")]

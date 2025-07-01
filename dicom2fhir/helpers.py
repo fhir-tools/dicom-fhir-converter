@@ -38,20 +38,25 @@ def default_id_function(pepper: str | None = None) -> Callable[[str, DicomJsonPr
     Default ID function for FHIR resource id generation.
     Can be customized with a pepper string for additional uniqueness.
     """
-    def _id(resource_type: str, ds: DicomJsonProxy) -> str:
+    def _id(resource_type: str, ds: DicomJsonProxy, extra: str|None = "") -> str:
         if not isinstance(ds, DicomJsonProxy):
             raise TypeError("Expected a DicomJsonProxy object")
 
-        base_string = ""
+        base_string = extra
         if resource_type == "ImagingStudy" and "StudyInstanceUID" in ds:
-            base_string = ds.StudyInstanceUID
+            base_string = f"{base_string}{ds.StudyInstanceUID}"
         elif resource_type == "Patient" and "PatientID" in ds:
-            base_string = ds.PatientID
+            base_string = f"{base_string}{ds.PatientID}"
         elif resource_type == "Device" and "DeviceSerialNumber" in ds:
             uid = ds.get("DeviceUID") or ''
             ser = ds.get("DeviceSerialNumber") or ''
             mod = ds.get("ManufacturerModelName") or ''
-            base_string = f"{uid}{ser}{mod}"
+            base_string = f"{base_string}{uid}{ser}{mod}"
+        elif resource_type == "Observation":
+            uid = ds.StudyInstanceUID if ds.non_empty("StudyInstanceUID") else ""
+            study_date = ds.StudyDate if ds.non_empty("StudyDate") else ""
+            study_time = ds.StudyTime if ds.non_empty("StudyTime") else ""
+            base_string = f"{base_string}{uid}{study_date}{study_time}"
         else:
             return str(uuid.uuid4())
 

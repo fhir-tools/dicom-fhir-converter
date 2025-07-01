@@ -53,52 +53,40 @@ class Dicom2FHIRBundle():
         study_data["resource_type"] = "ImagingStudy"
         study_data["id"] = self.config['id_function']("ImagingStudy", ds)
         study_data["status"] = "available"
-        try:
-            if str(ds.StudyDescription) != '':
-                study_data["description"] = str(ds.StudyDescription)
-        except Exception:
-            pass  # missing study description
-
+        
+        if ds.non_empty("StudyDescription"):
+            study_data["description"] = str(ds.StudyDescription)
+        
         study_data["identifier"] = []
-        study_data["identifier"].append(gen_accession_identifier(str(ds.AccessionNumber)))
-        study_data["identifier"].append(gen_studyinstanceuid_identifier(str(ds.StudyInstanceUID)))
+        if ds.non_empty("AccessionNumber"):
+            study_data["identifier"].append(gen_accession_identifier(str(ds.AccessionNumber)))
+        if ds.non_empty("StudyInstanceUID"):
+            study_data["identifier"].append(gen_studyinstanceuid_identifier(str(ds.StudyInstanceUID)))
 
         # Set the patient reference
         study_data["subject"] = Reference.model_construct(reference=f"Patient/{self.pat.id}") if self.pat else None
 
-        procedures = []
-        try:
+        # procedure codes
+        if ds.non_empty("ProcedureCodeSequence"):
             procedures = dcm_coded_concept(str(ds.ProcedureCodeSequence))
-        except Exception:
-            pass  # procedure code sequence not found
+            study_data["procedureCode"] = gen_procedurecode_array(procedures)        
 
-        study_data["procedureCode"] = gen_procedurecode_array(procedures)
+        if ds.non_empty("StudyDate") and ds.non_empty("StudyTime"):
+            study_data["started"] = gen_started_datetime(str(ds.StudyDate), str(ds.StudyTime), self.config["dicom_timezone"])
 
-        studyTime = None
-        try:
-            studyTime = str(ds.StudyTime)
-        except Exception:
-            pass  # print("Study Date is missing")
+        # reason codes
+        if ds.non_empty("ReferencedRequestSequence"):
+            for seq in ds.ReferencedRequestSequence:
 
-        try:
-            studyDate = str(ds.StudyDate)
-            study_data["started"] = gen_started_datetime(studyDate, studyTime, self.config["dicom_timezone"])
-        except Exception:
-            pass  # print("Study Date is missing")
+                reason = None
+                reasonStr = None 
 
-        reason = None
-        reasonStr = None
-        try:
-            reason = dcm_coded_concept(str(ds.ReasonForRequestedProcedureCodeSequence))
-        except Exception:
-            pass  # print("Reason for Request procedure Code Seq is not available")
-
-        try:
-            reasonStr = str(ds.ReasonForTheRequestedProcedure)
-        except Exception:
-            pass  # print ("Reason for Requested procedures not found")
-
-        study_data["reasonCode"] = gen_reason(reason, reasonStr)
+                if seq.non_empty("ReasonForRequestedProcedureCodeSequence"):
+                    reason = dcm_coded_concept(str(ds.ReasonForRequestedProcedureCodeSequence))
+                if seq.non_empty("ReasonForTheRequestedProcedure"):
+                    reasonStr = str(ds.ReasonForTheRequestedProcedure)
+                if reason is not None and reasonStr is not None:
+                    study_data["reasonCode"] = gen_reason(reason, reasonStr)
 
         study_data["numberOfSeries"] = 0
         study_data["numberOfInstances"] = 0
@@ -115,40 +103,31 @@ class Dicom2FHIRBundle():
 
         # inti data container
         self.series[series_instance_uid] = {}
-
         self.series[series_instance_uid]["uid"] = series_instance_uid
-        try:
-            if "SeriesDescription" in ds and str(ds.SeriesDescription) != '':
-                self.series[series_instance_uid]["description"] = str(ds.SeriesDescription)
-        except Exception:
-            pass
-
-        if "SeriesNumber" in ds and str(ds.SeriesNumber) != '':
-            self.series[series_instance_uid]["number"] = str(ds.SeriesNumber)
-
         self.series[series_instance_uid]["numberOfInstances"] = 0
 
-        self.series[series_instance_uid]["modality"] = gen_coding(
-            code=str(ds.Modality),
-            system=ACQUISITION_MODALITY_SYS
-        )
+        if ds.non_empty("SeriesDescription"):
+            self.series[series_instance_uid]["description"] = str(ds.SeriesDescription)
+
+        if ds.non_empty("SeriesNumber"):
+            self.series[series_instance_uid]["number"] = str(ds.SeriesNumber)
+
+        if ds.non_empty("Modality"):
+            self.series[series_instance_uid]["modality"] = gen_coding(
+                code=str(ds.Modality),
+                system=ACQUISITION_MODALITY_SYS
+            )
         
-        try:
-            stime = str(ds.SeriesTime)
-            sdate = str(ds.SeriesDate)
-            self.series[series_instance_uid]["started"] = gen_started_datetime(sdate, stime, self.config["dicom_timezone"])
-        except Exception:
-            pass  # print("Series Date/Time is missing")
+        if ds.non_empty("SeriesDate") and ds.non_empty("SeriesTime"):
+            self.series[series_instance_uid]["started"] = gen_started_datetime(
+                str(ds.SeriesDate), str(ds.SeriesTime), self.config["dicom_timezone"]
+            )
 
-        try:
+        if ds.non_empty("BodyPartExamined"):
             self.series[series_instance_uid]["bodySite"] = gen_bodysite_coding(str(ds.BodyPartExamined))
-        except Exception:
-            pass  # print ("Body Part Examined missing")
 
-        try:
+        if ds.non_empty("Laterality"):
             self.series[series_instance_uid]["laterality"] = gen_coding(str(ds.Laterality))
-        except Exception:
-            pass  # print ("Laterality missing")
     
     def _add_instance(self, ds: DicomJsonProxy):
 
@@ -170,7 +149,9 @@ class Dicom2FHIRBundle():
             code="urn:oid:" + ds.SOPClassUID,
             system=SOP_CLASS_SYS
         )
-        self.instances[series_instance_uid][sop_instance_uid]["number"] = str(ds.InstanceNumber)
+
+        if ds.non_empty("InstanceNumber"):
+            self.instances[series_instance_uid][sop_instance_uid]["number"] = str(ds.InstanceNumber)
 
         try:
             if str(ds.Modality) == "SR":

@@ -33,20 +33,19 @@ def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
 
     device = Device.model_construct()
     # Resource ID
-    id_func = config.get("id_function", lambda t, d: str(uuid.uuid4()))
-    device.id = id_func("Device", ds)
+    device.id = config['id_function']('Device', ds)
 
     # Identifiers
     identifiers = []
 
-    if "DeviceSerialNumber" in ds:
+    if ds.non_empty("DeviceSerialNumber"):
         identifiers.append({
             "use": "official",
             "system": "urn:dicom:device-serial-number",
             "value": str(ds.DeviceSerialNumber)
         })
 
-    if "DeviceUID" in ds:
+    if ds.non_empty("DeviceUID"):
         identifiers.append({
             "use": "official",
             "system": "urn:dicom:device-uid",
@@ -57,27 +56,27 @@ def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
         device.identifier = identifiers
 
     # Manufacturer & Model
-    if "Manufacturer" in ds:
+    if ds.non_empty("Manufacturer"):
         device.manufacturer = str(ds.Manufacturer)
-    if "ManufacturerModelName" in ds:
+    if ds.non_empty("ManufacturerModelName"):
         device.deviceName = [DeviceDeviceName.model_construct(name=str(ds.ManufacturerModelName), type="model-name")]
 
     # Software version(s)
     device.version = _map_software_versions(ds)
 
     # Institutional context
-    if "InstitutionName" in ds:
+    if ds.non_empty("InstitutionName"):
         device.owner = {"display": str(ds.InstitutionName)}
-    if "InstitutionalDepartmentName" in ds:
+    if ds.non_empty("InstitutionalDepartmentName"):
         device.location = {"display": str(ds.InstitutionalDepartmentName)}
-    if "StationName" in ds:
+    if ds.non_empty("StationName"):
         # Could be assigned to device.deviceName as 'station' or use part of location
         device.deviceName = device.deviceName or []
         device.deviceName.append(DeviceDeviceName.model_construct(name=str(ds.StationName), type="station-name"))
 
     # Physical/device-specific details
     try:
-        if "SpatialResolution" in ds:
+        if ds.non_empty("SpatialResolution"):
             device.property = device.property or []
             device.property.append({
                 "type": {"text": "spatial-resolution-mm"},
@@ -87,23 +86,25 @@ def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
         logger.warning(f"Failed to extract SpatialResolution: {ds.SpatialResolution}")
 
     # Calibration date/time
-    cal_date = str(ds.DateOfLastCalibration) if "DateOfLastCalibration" in ds else None
-    cal_time = str(ds.TimeOfLastCalibration) if "TimeOfLastCalibration" in ds else None
-    if cal_date or cal_time:
-        dt = cal_date + (cal_time or "")
+    dt = ""
+    if ds.non_empty("DateOfLastCalibration"):
+        dt += str(ds.DateOfLastCalibration) 
+    if ds.non_empty("TimeOfLastCalibration"):
+        dt += str(ds.TimeOfLastCalibration)
+    if dt != "":
         device.note = device.note or []
         device.note.append(Annotation.model_construct(text=f"Last calibration: {dt}"))
 
     # Pixel padding—maybe not core but included
-    if "PixelPaddingValue" in ds:
+    if ds.non_empty("PixelPaddingValue"):
         device.note = device.note or []
         device.note.append(Annotation.model_construct(text=f"Pixel padding value: {ds.PixelPaddingValue}"))
 
     # UDI (Unique Device Identifier)
-    if "UDISequence" in ds:
+    if ds.non_empty("UDISequence"):
         udi_items = []
         for item in ds.UDISequence:
-            if "UniqueDeviceIdentifier" in item:
+            if item.non_empty("UniqueDeviceIdentifier"):
                 udi_items.append(DeviceUdiCarrier.model_construct(
                     deviceIdentifier=str(item.UniqueDeviceIdentifier))
                 )
@@ -111,7 +112,7 @@ def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
             device.udiCarrier = udi_items
 
     # Modality as device type
-    if "Modality" in ds:
+    if ds.non_empty("Modality"):
         device.type = {"text": str(ds.Modality)}
 
     return device
