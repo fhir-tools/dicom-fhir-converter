@@ -68,7 +68,7 @@ class Dicom2FHIRBundle():
 
         # procedure codes
         if ds.non_empty("ProcedureCodeSequence"):
-            procedures = dcm_coded_concept(str(ds.ProcedureCodeSequence))
+            procedures = dcm_coded_concept(ds.ProcedureCodeSequence)
             study_data["procedureCode"] = gen_procedurecode_array(procedures)        
 
         if ds.non_empty("StudyDate") and ds.non_empty("StudyTime"):
@@ -82,7 +82,7 @@ class Dicom2FHIRBundle():
                 reasonStr = None 
 
                 if seq.non_empty("ReasonForRequestedProcedureCodeSequence"):
-                    reason = dcm_coded_concept(str(ds.ReasonForRequestedProcedureCodeSequence))
+                    reason = dcm_coded_concept(ds.ReasonForRequestedProcedureCodeSequence)
                 if seq.non_empty("ReasonForTheRequestedProcedure"):
                     reasonStr = str(ds.ReasonForTheRequestedProcedure)
                 if reason is not None and reasonStr is not None:

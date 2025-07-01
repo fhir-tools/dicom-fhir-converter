@@ -242,58 +242,28 @@ def gen_bodysite_coding(bd):
         code=str(bd_snomed['code']),
         system="http://snomed.info/sct",
         display=bd_snomed['display']
-    ) 
-
-# def update_study_modality_list(study_list_modality: list, modality: str):
-#     if study_list_modality is None or len(study_list_modality) <= 0:
-#         study_list_modality = []
-#         study_list_modality.append(modality)
-#         return
-
-#     c = next((mc for mc in study_list_modality if
-#               mc == modality), None)
-#     if c is not None:
-#         return
-
-#     study_list_modality.append(modality)
-#     return
-
-
-# def update_study_bodysite_list(study: imagingstudy.ImagingStudy, bodysite: coding.Coding):
-#     if study.bodySite__ext is None or len(study.bodySite__ext) <= 0:
-#         study.bodySite__ext = []
-#         study.bodySite__ext.append(bodysite)
-#         return
-
-#     c = next((mc for mc in study.bodySite__ext if
-#               mc.system == bodysite.system and
-#               mc.code == bodysite.code), None)
-#     if c is not None:
-#         return
-
-#     study.bodySite__ext.append(bodysite)
-#     return
-
-
-# def update_study_laterality_list(study: imagingstudy.ImagingStudy, laterality: coding.Coding):
-#     if study.laterality__ext is None or len(study.laterality__ext) <= 0:
-#         study.laterality__ext = []
-#         study.laterality__ext.append(laterality)
-#         return
-
-#     c = next((mc for mc in study.laterality__ext if
-#               mc.system == laterality.system and
-#               mc.code == laterality.code), None)
-#     if c is not None:
-#         return
-
-    # study.laterality__ext.append(laterality)
-    # return
-
+    )
 
 def dcm_coded_concept(code_sequence: list[DicomJsonProxy]):
+    """    
+    Convert a DICOM Code Sequence to a list of FHIR CodeableConcept objects.
+    Args:
+        code_sequence (list[DicomJsonProxy]): A list of DicomJsonProxy objects representing the DICOM Code Sequence.
+    Returns:
+        list[dict]: A list of dictionaries representing the FHIR CodeableConcept objects.
+    Raises:
+        TypeError: If the input is not a list of DicomJsonProxy objects.
+    """
+
+    if not isinstance(code_sequence, list):
+        raise TypeError("Expected a list of DicomJsonProxy objects")
+
     concepts = []
     for seq in code_sequence:
+
+        if not isinstance(seq, DicomJsonProxy):
+            raise TypeError("Expected a DicomJsonProxy object in the list")
+
         concept = {}
         if seq.non_empty("CodeValue"):
             concept["code"] = str(seq.CodeValue)
