@@ -7,7 +7,6 @@ from pathlib import Path
 from fhir.resources.R4B import bundle
 from pydicom import dcmread
 from pydicom import dataset
-from tqdm import tqdm
 import logging
 from typing import Iterable, Union, AsyncGenerator
 import dicom2fhir.helpers as helpers
