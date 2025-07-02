@@ -37,12 +37,13 @@ def default_id_function(pepper: str | None = None) -> Callable[[str, DicomJsonPr
     """
     Default ID function for FHIR resource id generation.
     Can be customized with a pepper string for additional uniqueness.
+    The `extra` parameter can be used to pass additional information to differentiate Resources of the same type.
     """
-    def _id(resource_type: str, ds: DicomJsonProxy, extra: str|None = "") -> str:
+    def _id(resource_type: str, ds: DicomJsonProxy, extra: str = "") -> str:
         if not isinstance(ds, DicomJsonProxy):
             raise TypeError("Expected a DicomJsonProxy object")
 
-        base_string = extra
+        base_string = f"{pepper or ''}{extra  or ''}{resource_type}"
         if resource_type == "ImagingStudy" and "StudyInstanceUID" in ds:
             base_string = f"{base_string}{ds.StudyInstanceUID}"
         elif resource_type == "Patient" and "PatientID" in ds:
@@ -60,6 +61,6 @@ def default_id_function(pepper: str | None = None) -> Callable[[str, DicomJsonPr
         else:
             return str(uuid.uuid4())
 
-        return hashlib.sha256(f"{base_string}{pepper or ''}".encode("utf-8")).hexdigest()
+        return hashlib.sha256(base_string.encode("utf-8")).hexdigest()
 
     return _id
