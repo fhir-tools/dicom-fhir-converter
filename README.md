@@ -28,7 +28,10 @@ dicom2fhir_config = {
     "dicom_timezone": config.get("dicom_timezone", "UTC"),
     "generator": {
         "imaging_study": {
-            "add_instance": config.get("add_instances_to_imaging_study", False),
+            "add_instance": False, # do not add single instances, only series to the ImagingStudy
+        }
+        "observation": {
+            "add_vital_signs": True,  # add vital signs Observations for body weight and height
         }
     }
 }
@@ -52,7 +55,10 @@ dicom2fhir_config = {
     "dicom_timezone": config.get("dicom_timezone", "UTC"),
     "generator": {
         "imaging_study": {
-            "add_instance": config.get("add_instances_to_imaging_study", False),
+            "add_instance": False, # do not add single instances, only series to the ImagingStudy
+        }
+        "observation": {
+            "add_vital_signs": True,  # add vital signs Observations for body weight and height
         }
     }
 }
