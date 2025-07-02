@@ -99,11 +99,14 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-The resulting object is a FHIR transaction Bundle containing:
--	One ImagingStudy resource
--	One Patient resource
--	One Device resource
--	Optionally, Observation resources for body weight and height if the corresponding DICOM tags are present.
+Apart from the above configuration options you can also pass a custom function via `config['id_function']` to create FHIR resource ids from business identifiers. This is useful if you want to use a different identifier scheme than the default one, which is based on the DICOM Study UID. Please see the [default id function](/blob/main/dicom2fhir/helpers.py#L36) for reference.
+
+
+The resulting object is a FHIR R4B transaction [Bundle](https://hl7.org/fhir/R4B/bundle.html) containing:
+-	One [ImagingStudy](https://hl7.org/fhir/R4B/imagingstudy.html) resource
+-	One [Patient](https://hl7.org/fhir/R4B/patient.html) resource
+-	One [Device](https://hl7.org/fhir/R4B/device.html) resource
+-	Optionally, [Observation](https://hl7.org/fhir/R4B/observation.html) resources for body weight and height if the corresponding DICOM tags are present.
 
 If you need to update the bodysite Snomed mappings run:
 
