@@ -11,6 +11,12 @@ Compared to the original project, the dependency on pydicom has been reduced and
 
 The library also works internally with [Asynchronous Generators](https://superfastpython.com/asynchronous-generators-in-python/), which can increase the complexity of handling the library somewhat, but is considerably more memory-efficient, especially for extensive studies with sometimes 1000 or more DICOM instances.
 
+## Installation
+
+```shell
+pip install dicom2fhir
+```
+
 ## Usage
 
 Parse from a directory containing DICOM files:
