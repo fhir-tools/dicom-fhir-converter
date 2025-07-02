@@ -110,24 +110,6 @@ def calc_dob(dicom_dob: str):
         return None
     return fhir_dob
 
-
-def inline_patient_resource(referenceId, PatientID, IssuerOfPatientID, patientName, gender, dob):
-    p = patient.Patient.model_construct()
-    p.id = referenceId
-    p.name = []
-    # p.use = "official"
-    p.identifier = [get_patient_resource_ids(PatientID, IssuerOfPatientID)]
-    hn = humanname.HumanName.model_construct()
-    hn.family = str(patientName.family_name)
-    if patientName.given_name != '':
-        hn.given = [str(patientName.given_name)]
-    p.name.append(hn)
-    p.gender = calc_gender(str(gender))
-    p.birthDate = calc_dob(str(dob))
-    p.active = True
-    return p
-
-
 def gen_procedurecode_array(procedures):
     if procedures is None:
         return None
