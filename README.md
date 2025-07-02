@@ -16,62 +16,87 @@ The library also works internally with [Asynchronous Generators](https://superfa
 Parse from a directory containing DICOM files:
 
 ```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
 from dicom2fhir.dicom2fhir import from_directory
 from pprint import pprint
+import asyncio
 
-# some directory containing DICOM files (recursively parsed)
+# Some directory containing DICOM files (recursively parsed)
 dcmDir = os.path.join("some", "directory", "with", "dicom-files")
 
-# configuration for the dicom2fhir conversion
+# Configuration for the dicom2fhir conversion
 dicom2fhir_config = {
-    "dicom_timezone": config.get("dicom_timezone", "UTC"),
+    "dicom_timezone": "Europe/Berlin",  # Set the timezone for DICOM dates
     "generator": {
         "imaging_study": {
-            "add_instance": False, # do not add single instances, only series to the ImagingStudy
-        }
+            "add_instance": False  # Do not add single instances, only series to the ImagingStudy
+        },
         "observation": {
-            "add_vital_signs": True,  # add vital signs Observations for body weight and height
+            "add_vital_signs": True  # Add vital signs Observations for body weight and height
         }
     }
 }
 
-# convert to FHIR Bundle (async!!)
-bundle = await dicom2fhir.from_directory(dcmDir, config=dicom2fhir_config)
+# Async wrapper
+async def main():
+    # Convert to FHIR Bundle
+    bundle = await from_directory(dcmDir, config=dicom2fhir_config)
 
-# Print the resulting FHIR Bundle as JSON
-pprint(bundle.model_dump_json(indent=2))
+    # Print the resulting FHIR Bundle as JSON
+    pprint(bundle.model_dump_json(indent=2))
+
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 Parse from an iterable of DICOM JSON dicts:
 
 ```python
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+
 import os
 from dicom2fhir.dicom2fhir import from_generator
 from pprint import pprint
+import asyncio
 
-# configuration for the dicom2fhir conversion
+# Configuration for the dicom2fhir conversion
 dicom2fhir_config = {
-    "dicom_timezone": config.get("dicom_timezone", "UTC"),
+    "dicom_timezone": "Europe/Berlin",  # Set the timezone for DICOM dates
     "generator": {
         "imaging_study": {
-            "add_instance": False, # do not add single instances, only series to the ImagingStudy
-        }
+            "add_instance": False  # Do not add single instances, only series to the ImagingStudy
+        },
         "observation": {
-            "add_vital_signs": True,  # add vital signs Observations for body weight and height
+            "add_vital_signs": True  # Add vital signs Observations for body weight and height
         }
     }
 }
 
-# some async generator that yields DICOM JSON dicts
-# could e.g. be a database query, a file reader, a DIMSE socket or any other source
-dicom_json_dicts = await async_get_dicom_json_generator(...)
+# Dummy async generator function to simulate DICOM JSON dicts
+async def async_get_dicom_json_generator():
+    yield {
+        # A minimal valid DICOM-to-FHIR dictionary structure (example content)
+        "00080020": {"vr": "DA", "Value": ["20210101"]},
+        "00100010": {"vr": "PN", "Value": [{"Alphabetic": "Doe^John"}]},
+    }
 
-# convert to FHIR Bundle (async!!)
-bundle = await dicom2fhir.from_directory(from_generator, config=dicom2fhir_config)
+# Main coroutine to run the conversion
+async def main():
+    dicom_json_dicts = async_get_dicom_json_generator()
 
-# Print the resulting FHIR Bundle as JSON
-pprint(bundle.model_dump_json(indent=2))
+    # Convert to FHIR Bundle
+    bundle = await from_generator(dicom_json_dicts, config=dicom2fhir_config)
+
+    # Print the resulting FHIR Bundle as JSON
+    pprint(bundle.model_dump_json(indent=2))
+
+# Run the async main function
+if __name__ == "__main__":
+    asyncio.run(main())
 ```
 
 The resulting object is a FHIR transaction Bundle containing:
