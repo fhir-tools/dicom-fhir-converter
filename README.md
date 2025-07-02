@@ -99,7 +99,7 @@ if __name__ == "__main__":
     asyncio.run(main())
 ```
 
-Apart from the above configuration options you can also pass a custom function via `config['id_function']` to create FHIR resource ids from business identifiers. This is useful if you want to use a different identifier scheme than the default one, which is based on the DICOM Study UID. Please see the [default id function](/blob/main/dicom2fhir/helpers.py#L36) for reference.
+Apart from the above configuration options you can also pass a custom function via `config['id_function']` to create FHIR resource ids from business identifiers. This is useful if you want to use a different identifier scheme than the default one, which is based on the DICOM Study UID. Please see the [default id function](/dicom2fhir/helpers.py#L36) for reference.
 
 
 The resulting object is a FHIR R4B transaction [Bundle](https://hl7.org/fhir/R4B/bundle.html) containing:
