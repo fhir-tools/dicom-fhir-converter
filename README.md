@@ -1,26 +1,68 @@
 # dicom-fhir-converter
 This project was originally forked from [alexa-ian/dicom-fhir-converter](https://github.com/alexa-ian/dicom-fhir-converter). However, due to extensive refactoring and structural changes, it has since been detached from the upstream repository and is now maintained as an independent, standalone Python library.
 
-The library converts DICOM data into a FHIR transaction Bundle that includes an ImagingStudy resource, a Patient resource, a Device resource, and optionally Observation resources. It supports two input modes: either a directory containing DICOM files (recursively parsed), or an `Iterable` of `pydicom.Dataset` instances passed directly to the API.
+The library converts DICOM data into a FHIR transaction Bundle that includes an ImagingStudy resource, a Patient resource, a Device resource, and optionally Observation resources. It supports two input modes: either a directory containing DICOM files (recursively parsed), or an `AsyncGenerator[dict, None]` of DICOM JSON dicts instances passed directly to the API.
 
 This library utilizes the following projects:
 - fhir.resources project (https://pypi.org/project/fhir.resources/) - used to create FHIR models
-- pydicom (https://pydicom.github.io/) - used to read dicom instances
+- pydicom (https://pydicom.github.io/) - (partially) used to read dicom instances
 
-The library does not rely on the terminology service therefore, any coding that requires a look-up were coded with ```"userSelected=True"``` values.
+Compared to the original project, the dependency on pydicom has been reduced and the library now uses its own DicomJsonProxy class to process DICOM JSON data. This allows for more lenient and efficient parsing of DICOM data when it is already in JSON format, and avoids the somewhat stringent checks of DICOM tags not used by pydicom anyway.
+
+The library also works internally with [Asynchronous Generators](https://superfastpython.com/asynchronous-generators-in-python/), which can increase the complexity of handling the library somewhat, but is considerably more memory-efficient, especially for extensive studies with sometimes 1000 or more DICOM instances.
 
 ## Usage
 
+Parse from a directory containing DICOM files:
+
 ```python
-from dicom2fhir.dicom2fhir import process_dicom_2_fhir
+import os
+from dicom2fhir.dicom2fhir import from_directory
 from pprint import pprint
 
-# Process a directory of DICOM files
-bundle = process_dicom_2_fhir("study directory")
+# some directory containing DICOM files (recursively parsed)
+dcmDir = os.path.join("some", "directory", "with", "dicom-files")
 
-# Or provide an iterable of pydicom.Dataset objects directly
-# datasets = [pydicom.dcmread(path) for path in file_paths]
-# bundle = process_dicom_2_fhir(datasets)
+# configuration for the dicom2fhir conversion
+dicom2fhir_config = {
+    "dicom_timezone": config.get("dicom_timezone", "UTC"),
+    "generator": {
+        "imaging_study": {
+            "add_instance": config.get("add_instances_to_imaging_study", False),
+        }
+    }
+}
+
+# convert to FHIR Bundle (async!!)
+bundle = await dicom2fhir.from_directory(dcmDir, config=dicom2fhir_config)
+
+# Print the resulting FHIR Bundle as JSON
+pprint(bundle.model_dump_json(indent=2))
+```
+
+Parse from an iterable of DICOM JSON dicts:
+
+```python
+import os
+from dicom2fhir.dicom2fhir import from_generator
+from pprint import pprint
+
+# configuration for the dicom2fhir conversion
+dicom2fhir_config = {
+    "dicom_timezone": config.get("dicom_timezone", "UTC"),
+    "generator": {
+        "imaging_study": {
+            "add_instance": config.get("add_instances_to_imaging_study", False),
+        }
+    }
+}
+
+# some async generator that yields DICOM JSON dicts
+# could e.g. be a database query, a file reader, a DIMSE socket or any other source
+dicom_json_dicts = await async_get_dicom_json_generator(...)
+
+# convert to FHIR Bundle (async!!)
+bundle = await dicom2fhir.from_directory(from_generator, config=dicom2fhir_config)
 
 # Print the resulting FHIR Bundle as JSON
 pprint(bundle.model_dump_json(indent=2))
@@ -30,7 +72,7 @@ The resulting object is a FHIR transaction Bundle containing:
 -	One ImagingStudy resource
 -	One Patient resource
 -	One Device resource
--	Optionally, one or more Observation resources
+-	Optionally, Observation resources for body weight and height if the corresponding DICOM tags are present.
 
 If you need to update the bodysite Snomed mappings run:
 
