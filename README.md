@@ -356,4 +356,4 @@ twine upload dist/*
 ## Todo 
 
 - [x] Allow to pass custom function to create FHIR resource ids from business identifiers
-- [ ] Add support for DICOMweb data inputs
+- [ ] Making FHIR profiles compatible with the [MII-KDS](https://www.medizininformatik-initiative.de/en/basic-modules-mii-core-data-set)
