@@ -1,20 +1,14 @@
+# -*- coding: utf-8 -*-
 from datetime import datetime
 from dateutil import tz as dateutil_tz
-
-from fhir.resources.R4B import imagingstudy
 from fhir.resources.R4B import identifier
 from fhir.resources.R4B import codeableconcept
 from fhir.resources.R4B import coding
-from fhir.resources.R4B import patient
-from fhir.resources.R4B import humanname
 from fhir.resources.R4B import fhirtypes
 from fhir.resources.R4B import reference
-from fhir.resources.R4B import extension
 import pandas as pd
 import json
 from pathlib import Path
-import os
-import logging
 from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 
 TERMINOLOGY_CODING_SYS = "http://terminology.hl7.org/CodeSystem/v2-0203"
@@ -53,13 +47,11 @@ def gen_accession_identifier(id):
     idf.value = id
     return idf
 
-
 def gen_studyinstanceuid_identifier(id):
     idf = identifier.Identifier.model_construct()
     idf.system = "urn:dicom:uid"
     idf.value = "urn:oid:" + id
     return idf
-
 
 def get_patient_resource_ids(PatientID, IssuerOfPatientID):
     idf = identifier.Identifier.model_construct()
@@ -79,7 +71,6 @@ def get_patient_resource_ids(PatientID, IssuerOfPatientID):
 
     return idf
 
-
 def calc_gender(gender: str | None):
     if gender is None:
         return "unknown"
@@ -93,7 +84,6 @@ def calc_gender(gender: str | None):
         return "other"
 
     return "unknown"
-
 
 def calc_dob(dicom_dob: str):
     if dicom_dob == '':
@@ -127,7 +117,6 @@ def gen_procedurecode_array(procedures):
     if len(fhir_proc) > 0:
         return fhir_proc
     return None
-
 
 def gen_started_datetime(dt, tm, tz):
     """
@@ -190,7 +179,6 @@ def gen_reason(reason, reasonStr):
         rc.coding.append(c)
         reasonList.append(rc)
     return reasonList
-
 
 def gen_coding(code: str, system: str|None = None, display: str|None = None):
     if isinstance(code, list):
