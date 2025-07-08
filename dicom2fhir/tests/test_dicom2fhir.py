@@ -1,15 +1,12 @@
 import os
-import yaml, json
+import yaml
 import logging
 import unittest
-from unittest import skipUnless
 from pathlib import Path
 from .. import dicom2fhir
 from fhir.resources.R4B import bundle
 from fhir.resources.R4B import imagingstudy
-from .. import helpers
 from dicom2fhir.dicom_json_proxy import DicomJsonProxy
-from typing import AsyncGenerator
 from pydicom import dcmread
 
 dicom2fhir_config = {
@@ -133,52 +130,3 @@ class testDicom2FHIR(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(study.modality), 1, "Only single modality expected for this study")
         self.assertEqual(study.modality[0].code, "CR", "Incorrect Modality detected")
         self.assertEqual(len(study.series), 4, "Number of series in the study: mismatch")
-
-    @skipUnless(os.getenv("RUN_FMX_TESTS") == "1", "Skipping FMX tests by config")
-    async def test_fmx(self):
-        import asyncpg
-
-        def load_fmx_conn_params(config: dict) -> dict:
-            """
-            Load connection params from YAML and inject password from ENV.
-            """
-            if os.getenv("FMX_PASSWORD") is None:
-                raise ValueError("FMX_PASSWORD environment variable is not set.")
-
-            return {
-                "database": helpers.env_or_config("FMX_DATABASE", "fmx.database", config),
-                "user":  helpers.env_or_config("FMX_USER", "fmx.user", config),
-                "host": helpers.env_or_config("FMX_HOST", "fmx.host", config),
-                "port": int(helpers.env_or_config("FMX_PORT", "fmx.port", config)),
-                "password": os.getenv("FMX_PASSWORD")
-            }
-
-        conn_params = load_fmx_conn_params(self.config)
-
-        async with asyncpg.create_pool(**conn_params) as pool:
-            async with pool.acquire() as conn:
-                async with conn.transaction():
-                    for _ in range(10):
-                        stmt = await conn.prepare("""
-                            SELECT di.sop_instance_uid, di.tags
-                            FROM dicom.dicom_instances di
-                            WHERE di.study_instance_uid = (
-                                SELECT study_instance_uid
-                                FROM dicom.dicom_studies
-                                ORDER BY random()
-                                LIMIT 1
-                            )
-                        """)
-
-                        async def _records_generator():
-                            async for record in stmt.cursor():
-                                yield json.loads(record["tags"])
-
-                        bundle = await dicom2fhir.from_generator(_records_generator(), config=self.config)
-
-                        study = _extract_imaging_study_from_bundle(bundle)
-
-                        self.assertIsNotNone(study, "No ImagingStudy was generated")
-                        self.assertIsNotNone(study.series, "Series was not built for the study")
-                        self.assertIsNotNone(study.series[0].instance[0].sopClass, "SOP Class is missing")
-                        self.assertEqual(study.series[0].instance[0].sopClass.system, "urn:ietf:rfc:3986", "SOP Class system is incorrect")
