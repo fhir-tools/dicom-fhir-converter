@@ -110,7 +110,11 @@ class Dicom2FHIRBundle():
             self.series[series_instance_uid]["description"] = str(ds.SeriesDescription)
 
         if ds.non_empty("SeriesNumber"):
-            self.series[series_instance_uid]["number"] = str(ds.SeriesNumber)
+            try:
+                series_number = int(float(str(ds.SeriesNumber)))  # handles both int and scientific notation
+                self.series[series_instance_uid]["number"] = series_number
+            except Exception as e:
+                logging.warning(f"Invalid SeriesNumber {ds.SeriesNumber}: {e}")
 
         if ds.non_empty("Modality"):
             self.series[series_instance_uid]["modality"] = gen_coding(
