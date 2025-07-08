@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import logging
 from datetime import datetime
 from dateutil import tz as dateutil_tz
 from fhir.resources.R4B import identifier
@@ -10,6 +11,8 @@ import pandas as pd
 import json
 from pathlib import Path
 from dicom2fhir.dicom_json_proxy import DicomJsonProxy
+
+logger = logging.getLogger(__name__)
 
 TERMINOLOGY_CODING_SYS = "http://terminology.hl7.org/CodeSystem/v2-0203"
 TERMINOLOGY_CODING_SYS_CODE_ACCESSION = "ACSN"
@@ -33,6 +36,26 @@ def _get_snomed(dicom_bodypart: str, sctmapping: pd.DataFrame) -> dict[str, str]
         'code': _rec["Code Value"].iloc[0],
         'display': _rec["Code Meaning"].iloc[0],
     }
+
+def _coding(d: dict) -> coding.Coding | None:
+
+    c = coding.Coding.model_construct()
+
+    if "code" not in d:
+        logger.warning(f"No code found in coding: {d}")
+        return None
+    if "system" in d:
+        c.system = d["system"]
+    else:
+        logger.warning(f"No system found in coding: {d}")
+    if "display" in d:
+        c.display = d["display"]
+    if "version" in d:
+        c.display = d["version"]
+    if "userSelected" in d:
+        c.userSelected = d["userSelected"]
+    
+    return c
 
 def gen_accession_identifier(id):
     idf = identifier.Identifier.model_construct()
@@ -106,13 +129,15 @@ def gen_procedurecode_array(procedures):
     fhir_proc = []
     for p in procedures:
         concept = codeableconcept.CodeableConcept.model_construct()
-        c = coding.Coding.model_construct()
-        c.system = p["system"]
-        c.code = p["code"]
-        c.display = p["display"]
-        concept.coding = []
-        concept.coding.append(c)
-        concept.text = p["display"]
+
+        c = _coding(p)
+        if c is not None:
+            concept.coding = []
+            concept.coding.append(c)
+
+        if "display" in p:
+            concept.text = p["display"]
+
         fhir_proc.append(concept)
     if len(fhir_proc) > 0:
         return fhir_proc
@@ -172,11 +197,9 @@ def gen_reason(reason, reasonStr):
     for r in reason:
         rc = codeableconcept.CodeableConcept.model_construct()
         rc.coding = []
-        c = coding.Coding.model_construct()
-        c.system = r["system"]
-        c.code = r["code"]
-        c.display = r["display"]
-        rc.coding.append(c)
+        c = _coding(r)
+        if c is not None:
+            rc.coding.append(c)
         reasonList.append(rc)
     return reasonList
 
