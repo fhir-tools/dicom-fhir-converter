@@ -352,7 +352,19 @@ The DICOM Study UID is actually stored as part of the "identifier" (see ```"syst
 }
 ```
 
-## Build and upload the library
+## Trigger GitHub action to build and upload the library
+
+Change `version` in `pyproject.toml` to the new version number, then run:
+
+```shell
+git add -u
+git commit -m "Bump version to x.y.z"
+git push origin main
+git tag <version>
+git push origin <version>
+```
+
+## Manually build and upload the library
 
 Change `version` in `pyproject.toml` to the new version number, then run:
 
