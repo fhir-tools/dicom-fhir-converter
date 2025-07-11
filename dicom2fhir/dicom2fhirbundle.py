@@ -112,7 +112,18 @@ class Dicom2FHIRBundle():
         if ds.non_empty("SeriesNumber"):
             try:
                 series_number = int(float(str(ds.SeriesNumber)))  # handles both int and scientific notation
-                self.series[series_instance_uid]["number"] = series_number
+
+                if series_number > 0 and series_number < 2147483647:
+                    self.series[series_instance_uid]["number"] = series_number
+                else:
+                    # SeriesNumber is out of range, log a warning and store original value as extension
+                    logging.warning(f"Invalid SeriesNumber {ds.SeriesNumber}: out of range")
+                    self.series[series_instance_uid]["extension"] = [
+                        {
+                            "url": "http://dicom.nema.org/resources/ontology/DCM/series-number",
+                            "valueString": str(ds.SeriesNumber)
+                        }
+                    ]
             except Exception as e:
                 logging.warning(f"Invalid SeriesNumber {ds.SeriesNumber}: {e}")
 
