@@ -113,7 +113,7 @@ class Dicom2FHIRBundle():
             try:
                 series_number = int(float(str(ds.SeriesNumber)))  # handles both int and scientific notation
 
-                if series_number > 0 and series_number < 2147483647:
+                if series_number >= 0 and series_number < 2147483647:
                     self.series[series_instance_uid]["number"] = series_number
                 else:
                     # SeriesNumber is out of range, log a warning and store original value as extension
