@@ -175,12 +175,7 @@ def create_extension(ds):
 
     extension_MG_CR_DX.extension = ex_list
 
-    try:
-        if not extension_MG_CR_DX.extension:
-            raise ValueError(
-                "The MG-CR-DX extension has no nested extensions.")
-    except Exception as e:
-        print(f"Info: {e}")
+    if not extension_MG_CR_DX.extension:
         return None
 
     return extension_MG_CR_DX

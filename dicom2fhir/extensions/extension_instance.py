@@ -68,12 +68,7 @@ def create_extension(ds):
 
     extension_instance.extension = ex_list
 
-    try:
-        if not extension_instance.extension:
-            raise ValueError(
-                "The instance extension has no nested extensions.")
-    except Exception as e:
-        print(f"Info: {e}")
+    if not extension_instance.extension:
         return None
 
     return extension_instance

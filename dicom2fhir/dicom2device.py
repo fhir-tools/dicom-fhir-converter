@@ -72,10 +72,11 @@ def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
         device.owner = {"display": str(ds.InstitutionName)}
     if ds.non_empty("InstitutionalDepartmentName"):
         device.location = {"display": str(ds.InstitutionalDepartmentName)}
-    if ds.non_empty("StationName"):
+    # if ds.non_empty("StationName"):
         # Could be assigned to device.deviceName as 'station' or use part of location
-        device.deviceName = device.deviceName or []
-        device.deviceName.append(DeviceDeviceName.model_construct(name=str(ds.StationName), type="station-name"))
+        # Not allowed in the MII Profile for Device
+        # device.deviceName = device.deviceName or []
+        # device.deviceName.append(DeviceDeviceName.model_construct(name=str(ds.StationName), type="station-name"))
 
     # Physical/device-specific details
     try:

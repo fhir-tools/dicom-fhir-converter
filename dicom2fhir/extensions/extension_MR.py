@@ -117,11 +117,7 @@ def create_extension(ds):
 
     extension_MR.extension = ex_list
 
-    try:
-        if not extension_MR.extension:
-            raise ValueError("The MR extension has no nested extensions.")
-    except Exception as e:
-        print(f"Info: {e}")
+    if not extension_MR.extension:
         return None
 
     return extension_MR

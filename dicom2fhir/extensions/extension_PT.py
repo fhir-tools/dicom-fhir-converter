@@ -187,11 +187,7 @@ def create_extension(ds):
 
     extension_PT.extension = ex_list
 
-    try:
-        if not extension_PT.extension:
-            raise Warning("The PT extension has no nested extensions.")
-    except Exception as e:
-        print(f"Info: {e}")
+    if not extension_PT.extension:
         return None
 
     return extension_PT

@@ -20,7 +20,7 @@ def build_observation_resources(ds: DicomJsonProxy, patient: Patient, study: Ima
     def create_obs(code: str, display: str, value: float, unit: str, system: str, code_unit: str) -> Observation:
         return Observation.model_construct(
             id=config['id_function']('Observation', ds, extra=code),
-            meta = Meta(profile=["	https://www.medizininformatik-initiative.de/fhir/ext/modul-bildgebung/StructureDefinition/mii-pr-bildgebung-radiologische-beobachtung"]),
+            meta = Meta(profile=["https://www.medizininformatik-initiative.de/fhir/ext/modul-bildgebung/StructureDefinition/mii-pr-bildgebung-radiologische-beobachtung"]),
             status="final",
             category=[CodeableConcept.model_construct(
                 coding=[Coding.model_construct(system="http://terminology.hl7.org/CodeSystem/observation-category", code="vital-signs")]
