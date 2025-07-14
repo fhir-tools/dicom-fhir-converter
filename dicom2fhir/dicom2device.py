@@ -5,6 +5,7 @@ from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 from fhir.resources.R4B.device import Device, DeviceDeviceName
 from fhir.resources.R4B.annotation import Annotation
 from fhir.resources.R4B.device import DeviceUdiCarrier
+from fhir.resources.R4B.meta import Meta
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,8 @@ def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
     """
 
     device = Device.model_construct()
+    device.meta = Meta(
+        profile=["https://www.medizininformatik-initiative.de/fhir/ext/modul-bildgebung/StructureDefinition/mii-pr-bildgebung-geraet"])
     # Resource ID
     device.id = config['id_function']('Device', ds)
 
