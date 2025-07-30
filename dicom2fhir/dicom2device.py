@@ -22,9 +22,10 @@ def _map_software_versions(ds: DicomJsonProxy) -> list[dict]:
     # Normalize to list of strings
     raw = ds.SoftwareVersions
     if isinstance(raw, Iterable) and not isinstance(raw, (str, bytes)):
-        return [{'value': str(item).strip()} for item in raw if item is not None]
+        return [{'value': str(item).strip()} for item in raw if item and str(item).strip()]
     else:
-        return [{'value': str(raw).strip()}]
+        cleaned = str(raw).strip()
+        return [{'value': cleaned}] if cleaned else []
 
 def build_device_resource(ds: DicomJsonProxy, config: dict) -> Device:
     """
