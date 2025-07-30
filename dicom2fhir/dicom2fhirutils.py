@@ -307,6 +307,13 @@ def add_extension_value(e, url, value, system, unit, type, display=None, text=No
 
     if type == "quantity":
         e.url = url
+        try:
+            if isinstance(value, str):
+                value = value.strip()
+            value = float(value)
+        except (ValueError, TypeError):
+            logging.warning(f"Skipping invalid Quantity.value: {value!r}")
+            return None
         value_quantity = quantity.Quantity()
         value_quantity.value = value
         value_quantity.unit = unit
