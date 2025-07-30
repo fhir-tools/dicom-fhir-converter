@@ -311,14 +311,33 @@ def add_extension_value(e, url, value, system, unit, type, display=None, text=No
             if isinstance(value, str):
                 value = value.strip()
             value = float(value)
+            value_quantity = quantity.Quantity()
+            value_quantity.value = value
+            value_quantity.unit = unit
+            value_quantity.system = system
+            e.valueQuantity = value_quantity
         except (ValueError, TypeError):
-            logging.warning(f"Skipping invalid Quantity.value: {value!r}")
-            return None
-        value_quantity = quantity.Quantity()
-        value_quantity.value = value
-        value_quantity.unit = unit
-        value_quantity.system = system
-        e.valueQuantity = value_quantity
+            logging.warning(f"Skipping invalid Quantity.value: {value!r}. Adding as extension with valueString.")
+            sub_exts = []
+
+            ext_value = extension.Extension()
+            ext_value.url = "Value.quantity.value"
+            ext_value.valueString = str(value)
+            sub_exts.append(ext_value)
+
+            if unit:
+                ext_unit = extension.Extension()
+                ext_unit.url = "Value.quantity.unit"
+                ext_unit.valueString = unit
+                sub_exts.append(ext_unit)
+
+            if system:
+                ext_sys = extension.Extension()
+                ext_sys.url = "Value.quantity.system"
+                ext_sys.valueString = system
+                sub_exts.append(ext_sys)
+
+            e.extension = sub_exts
 
     if type == "boolean":
         e.url = url
