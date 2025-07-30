@@ -3,6 +3,7 @@ import csv
 import pandas as pd
 from pathlib import Path
 from dicom2fhir.dicom2fhirutils import gen_extension, add_extension_value
+import logging
 
 RADIONUCLIDE_MAPPING_PATH = Path(
     __file__).parent.parent / "resources" / "terminologies" / "radionuclide_NM.json"
@@ -76,19 +77,25 @@ def create_extension(ds):
     # Radiopharmakon
     extension_radiopharmaceutical = gen_extension(url="radiopharmaceutical")
     if ds.non_empty("RadiopharmaceuticalInformationSequence"):
-        snomed_value, snomed_display = _get_snomed(
-            ds.RadiopharmaceuticalInformationSequence[0].Radiopharmaceutical, sctmapping=RADIOPHARMACEUTICAL_MAPPING)
-        if add_extension_value(
-            e=extension_radiopharmaceutical,
-            url="radiopharmaceutical",
-            value=snomed_value,
-            system="http://snomed.info/sct",
-            display=snomed_display,
-            unit=None,
-            text=ds.RadiopharmaceuticalInformationSequence[0].Radiopharmaceutical,
-            type="codeableconcept"
-        ):
-            ex_list.append(extension_radiopharmaceutical)
+        try:
+            seq0 = ds.RadiopharmaceuticalInformationSequence[0]
+            if seq0.non_empty("Radiopharmaceutical"):
+                snomed_value, snomed_display = _get_snomed(
+                    seq0.Radiopharmaceutical, sctmapping=RADIOPHARMACEUTICAL_MAPPING)
+                if add_extension_value(
+                    e=extension_radiopharmaceutical,
+                    url="radiopharmaceutical",
+                    value=snomed_value,
+                    system="http://snomed.info/sct",
+                    display=snomed_display,
+                    unit=None,
+                    text=seq0.Radiopharmaceutical,
+                    type="codeableconcept"
+                ):
+                    ex_list.append(extension_radiopharmaceutical)
+        except Exception as ex:
+            logger = logging.getLogger(__name__)
+            logger.warning("Failed to extract Radiopharmaceutical: %s", ex)
 
     # Radionuklid
     extension_radionuclide = gen_extension(url="radionuclide")
@@ -135,15 +142,21 @@ def create_extension(ds):
     extension_radionuclideTotalDose = gen_extension(
         url="radionuclideTotalDose")
     if ds.non_empty("RadiopharmaceuticalInformationSequence"):
-        if add_extension_value(
-            e=extension_radionuclideTotalDose,
-            url="radionuclideTotalDose",
-            value=ds.RadiopharmaceuticalInformationSequence[0].RadionuclideTotalDose,
-            system="http://unitsofmeasure.org",
-            unit="Megabecquerel",
-            type="quantity"
-        ):
-            ex_list.append(extension_radionuclideTotalDose)
+        try:
+            seq0 = ds.RadiopharmaceuticalInformationSequence[0]
+            if seq0.non_empty("RadionuclideTotalDose"):
+                if add_extension_value(
+                    e=extension_radionuclideTotalDose,
+                    url="radionuclideTotalDose",
+                    value=seq0.RadionuclideTotalDose,
+                    system="http://unitsofmeasure.org",
+                    unit="Megabecquerel",
+                    type="quantity"
+                ):
+                    ex_list.append(extension_radionuclideTotalDose)
+        except Exception as ex:
+            logger = logging.getLogger(__name__)
+            logger.warning("Failed to extract RadionuclideTotalDose: %s", ex)
 
     # radionuclideHalfLife
     extension_radionuclideHalfLife = gen_extension(url="radionuclideHalfLife")
