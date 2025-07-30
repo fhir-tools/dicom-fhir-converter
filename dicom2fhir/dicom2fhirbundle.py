@@ -92,6 +92,14 @@ class Dicom2FHIRBundle():
                     reasonStr = str(ds.ReasonForTheRequestedProcedure)
                 if reason is not None and reasonStr is not None:
                     study_data["reasonCode"] = gen_reason(reason, reasonStr)
+        
+        study_extensions = []
+        # reason extension
+        e_reason = extension_reason.create_extension(ds)
+        if e_reason is not None:
+            study_extensions.append(e_reason)
+
+        study_data["extension"] = study_extensions
 
         study_data["numberOfSeries"] = 0
         study_data["numberOfInstances"] = 0
@@ -182,11 +190,6 @@ class Dicom2FHIRBundle():
         e_con = extension_contrast.create_extension(ds)
         if e_con is not None:
             series_extensions.append(e_con)
-
-        # reason extension
-        e_reason = extension_reason.create_extension(ds)
-        if e_reason is not None:
-            series_extensions.append(e_reason)
 
         self.series[series_instance_uid]["extension"] = series_extensions
     
