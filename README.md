@@ -1,5 +1,6 @@
 # dicom-fhir-converter
 This project was originally forked from [alexa-ian/dicom-fhir-converter](https://github.com/alexa-ian/dicom-fhir-converter). However, due to extensive refactoring and structural changes, it has since been detached from the upstream repository and is now maintained as an independent, standalone Python library.
+The project is forked again with the blessing of the maintainer of https://github.com/UMEssen/dicom-fhir-converter.git. It will be maintained by [RACOON](https://racoon.network/) and volunteers to adjust the project to the landscape of german university clinics.
 
 The library converts DICOM data into a FHIR transaction Bundle that includes an ImagingStudy resource, a Patient resource, a Device resource, and optionally Observation resources. It supports two input modes: either a directory containing DICOM files (recursively parsed), or an `AsyncGenerator[dict, None]` of DICOM JSON dicts instances passed directly to the API.
 
