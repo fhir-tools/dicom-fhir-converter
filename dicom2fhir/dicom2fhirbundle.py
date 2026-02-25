@@ -146,6 +146,17 @@ class Dicom2FHIRBundle():
                 system=ACQUISITION_MODALITY_SYS
             )
         
+        #added device as performer of the series if device information is available
+        if self.device and self.device.id:
+            self.series[series_instance_uid]["performer"] = [
+                {
+                    "actor": {
+                        "reference": f"Device/{self.device.id}"
+                    }
+                }
+            ]
+
+
         if ds.non_empty("SeriesDate") and ds.non_empty("SeriesTime"):
             self.series[series_instance_uid]["started"] = gen_started_datetime(
                 str(ds.SeriesDate), str(ds.SeriesTime), self.config["dicom_timezone"]

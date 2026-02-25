@@ -10,7 +10,7 @@ from pydicom import dataset
 import logging
 from typing import Iterable, Union, AsyncGenerator
 import dicom2fhir.helpers as helpers
-from dicom2fhir.helpers import get_or
+from dicom2fhir.helpers import get_or, read_dicom_proxy
 from dicom2fhir.dicom2fhirbundle import Dicom2FHIRBundle
 from dicom2fhir.dicom_json_proxy import DicomJsonProxy
 
@@ -53,8 +53,7 @@ async def _parse_directory(dcmDir: StrPath, config: dict) -> AsyncGenerator[Dico
             continue
 
         try:
-            ds = dcmread(f, stop_before_pixels=True, force=True)
-            yield DicomJsonProxy(ds.to_json_dict())
+            yield  read_dicom_proxy(f, stop_before_pixels=True, force=True)
         except:
             logging.exception(f"An error occurred while processing DICOM file {f}")
             raise

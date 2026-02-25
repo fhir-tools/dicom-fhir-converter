@@ -52,9 +52,26 @@ class DicomJsonProxy:
             return value
 
         if isinstance(elem, dict) and "Value" in elem and "vr" in elem:
-            if elem["vr"] == "SQ":
-                return _wrap_as_proxy(elem["Value"]) or []
-            return _wrap_as_proxy(elem["Value"][0]) if isinstance(elem["Value"], list) else _wrap_as_proxy(elem["Value"])
+            vr = elem["vr"]
+            val = elem["Value"]
+
+            # Handle sequences (SQ)
+            if vr == "SQ":
+                return _wrap_as_proxy(val) or []
+
+            # Handle Person Name (PN)
+            if vr == "PN":
+                if isinstance(val, list):
+                    val = val[0]  # take first value
+                if isinstance(val, dict) and "Alphabetic" in val:
+                    return val["Alphabetic"]
+                return val
+
+            # Handle multi-value attributes
+            if isinstance(val, list) and len(val) > 1:
+                return _wrap_as_proxy(val)
+            return _wrap_as_proxy(val[0]) if isinstance(val, list) else _wrap_as_proxy(val)
+
         return _wrap_as_proxy(elem)
 
     def get(self, name, default=None):

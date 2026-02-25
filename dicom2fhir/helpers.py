@@ -64,3 +64,23 @@ def default_id_function(pepper: str | None = None) -> Callable[[str, DicomJsonPr
         return hashlib.sha256(base_string.encode("utf-8")).hexdigest()
 
     return _id
+
+from pydicom import dcmread
+import copy
+def read_dicom_proxy(file_path, stop_before_pixels=True, force=True):
+    ds = dcmread(file_path, stop_before_pixels=stop_before_pixels, force=force)
+    ds_copy = copy.deepcopy(ds)
+
+    # Fix Decimal Strings (DS) with commas
+    for elem in ds_copy.iterall():
+        if elem.VR == "DS":
+            if isinstance(elem.value, str):
+                elem.value = elem.value.replace(",", ".")
+            elif isinstance(elem.value, (list, tuple)):
+                elem.value = [v.replace(",", ".") if isinstance(v, str) else v for v in elem.value]
+
+    # Convert to JSON dict
+    dicom_json = ds_copy.to_json_dict()
+
+    # Wrap in proxy
+    return DicomJsonProxy(dicom_json)
